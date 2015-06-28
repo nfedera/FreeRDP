@@ -1511,6 +1511,8 @@ int progressive_process_tiles(PROGRESSIVE_CONTEXT* progressive, BYTE* blocks, UI
 	{
 		tile = tiles[index];
 
+		tile->valid = TRUE;
+
 		switch (tile->blockType)
 		{
 			case PROGRESSIVE_WBT_TILE_SIMPLE:
@@ -1534,6 +1536,7 @@ int progressive_decompress(PROGRESSIVE_CONTEXT* progressive, BYTE* pSrcData, UIN
 		BYTE** ppDstData, DWORD DstFormat, int nDstStep, int nXDst, int nYDst, int nWidth, int nHeight, UINT16 surfaceId)
 {
 	int status;
+	int i;
 	BYTE* block;
 	BYTE* blocks;
 	UINT16 index;
@@ -1755,11 +1758,11 @@ int progressive_decompress(PROGRESSIVE_CONTEXT* progressive, BYTE* pSrcData, UIN
 				if ((blockLen - boffset) < region->tileDataSize)
 					return -1021;
 
-				if (region->numTiles > progressive->cTiles)
+				if (progressive->cTiles < surface->gridSize)
 				{
 					progressive->tiles = (RFX_PROGRESSIVE_TILE**) realloc(progressive->tiles,
-							region->numTiles * sizeof(RFX_PROGRESSIVE_TILE*));
-					progressive->cTiles = region->numTiles;
+							surface->gridSize * sizeof(RFX_PROGRESSIVE_TILE*));
+					progressive->cTiles = surface->gridSize;
 				}
 
 				region->tiles = progressive->tiles;
@@ -1774,6 +1777,16 @@ int progressive_decompress(PROGRESSIVE_CONTEXT* progressive, BYTE* pSrcData, UIN
 
 				if (status < 0)
 					return status;
+
+				region->numTiles = 0;
+
+				for (i = 0; i < surface->gridSize; i++)
+				{
+					RFX_PROGRESSIVE_TILE* t = &(surface->tiles[i]);
+					if (!t->valid)
+						continue;
+					region->tiles[region->numTiles++] = t;
+				}
 
 				boffset += (UINT32) status;
 

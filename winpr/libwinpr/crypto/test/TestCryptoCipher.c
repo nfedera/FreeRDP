@@ -3,6 +3,123 @@
 #include <winpr/print.h>
 #include <winpr/crypto.h>
 
+
+
+static BOOL test_crypto_cipher_aes_128_cbc()
+{
+	WINPR_CIPHER_CTX* ctx;
+	BOOL result = FALSE;
+	BYTE key[] = "0123456789abcdeF";
+	BYTE iv[] = "1234567887654321";
+	BYTE ibuf[1024];
+	BYTE obuf[1024];
+	size_t ilen;
+	size_t olen;
+	size_t xlen;
+	const char plaintext[] = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.";
+
+	/* encrypt */
+
+	if (!(ctx = winpr_Cipher_New(WINPR_CIPHER_AES_128_CBC, WINPR_ENCRYPT, key, iv)))
+	{
+		fprintf(stderr, "%s: winpr_Cipher_New (encrypt) failed\n", __FUNCTION__);
+		return FALSE;
+	}
+
+	memset(ibuf, 0, sizeof(ibuf));
+	memset(obuf, 0, sizeof(obuf));
+
+	ilen = strlen(plaintext) + 1;
+	memcpy(ibuf, plaintext, ilen);
+
+	ilen = ((ilen + 15) / 16) * 16;
+	olen = 0;
+	xlen = 0;
+
+
+	if (!winpr_Cipher_Update(ctx, ibuf, ilen, obuf, &olen))
+	{
+		fprintf(stderr, "%s: winpr_Cipher_New (encrypt) failed\n", __FUNCTION__);
+		goto out;
+	}
+	xlen += olen;
+
+	if (!winpr_Cipher_Final(ctx, obuf, &olen))
+	{
+		fprintf(stderr, "%s: winpr_Cipher_Final (encrypt) failed\n", __FUNCTION__);
+		goto out;
+	}
+	xlen += olen;
+
+	if (!winpr_Cipher_Final(ctx, obuf, &olen))
+	{
+		fprintf(stderr, "%s: winpr_Cipher_Final (encrypt) failed\n", __FUNCTION__);
+		goto out;
+	}
+
+	if (xlen != ilen)
+	{
+		fprintf(stderr, "%s: error, xlen (%u) != ilen (%u) (encrypt)\n", __FUNCTION__, (unsigned)olen, (unsigned)ilen);
+		goto out;
+	}
+
+	winpr_Cipher_Free(ctx);
+
+
+	/* decrypt */
+
+	if (!(ctx = winpr_Cipher_New(WINPR_CIPHER_AES_128_CBC, WINPR_DECRYPT, key, iv)))
+	{
+		fprintf(stderr, "%s: winpr_Cipher_New (decrypt) failed\n", __FUNCTION__);
+		return FALSE;
+	}
+
+	memset(ibuf, 0, sizeof(ibuf));
+	memcpy(ibuf, obuf, xlen);
+	memset(obuf, 0, sizeof(obuf));
+	ilen = xlen;
+	olen = 0;
+	xlen = 0;
+
+	if (!winpr_Cipher_Update(ctx, ibuf, ilen, obuf, &olen))
+	{
+		fprintf(stderr, "%s: winpr_Cipher_New (decrypt) failed\n", __FUNCTION__);
+		goto out;
+	}
+	xlen += olen;
+
+	if (!winpr_Cipher_Final(ctx, obuf, &olen))
+	{
+		fprintf(stderr, "%s: winpr_Cipher_Final (decrypt) failed\n", __FUNCTION__);
+		goto out;
+	}
+	xlen += olen;
+
+	if (!winpr_Cipher_Final(ctx, obuf, &olen))
+	{
+		fprintf(stderr, "%s: winpr_Cipher_Final (decrypt) failed\n", __FUNCTION__);
+		goto out;
+	}
+
+	if (xlen != ilen)
+	{
+		fprintf(stderr, "%s: error, xlen (%u) != ilen (%u) (decrypt)\n", __FUNCTION__, (unsigned)olen, (unsigned)ilen);
+		goto out;
+	}
+
+	if (strcmp((const char*)obuf, plaintext))
+	{
+		fprintf(stderr, "%s: error, decrypted data does not match plaintext\n", __FUNCTION__);
+		goto out;
+	}
+
+	result = TRUE;
+
+out:
+	winpr_Cipher_Free(ctx);
+	return result;
+}
+
 static const BYTE* TEST_RC4_KEY = (BYTE*) "Key";
 static const char* TEST_RC4_PLAINTEXT = "Plaintext";
 static const BYTE* TEST_RC4_CIPHERTEXT = (BYTE*) "\xBB\xF3\x16\xE8\xD9\x40\xAF\x0A\xD3";
@@ -103,6 +220,9 @@ static BOOL test_crypto_cipher_key()
 
 int TestCryptoCipher(int argc, char* argv[])
 {
+	if (!test_crypto_cipher_aes_128_cbc())
+		return -1;
+
 	if (!test_crypto_cipher_rc4())
 		return -1;
 

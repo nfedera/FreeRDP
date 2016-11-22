@@ -790,7 +790,7 @@ WINPR_API void winpr_Cipher_Free(WINPR_CIPHER_CTX* ctx);
 extern "C" {
 #endif
 
-WINPR_API int winpr_openssl_BytesToKey(int cipher, int md, const BYTE* salt, const BYTE* data, int datal, int count, BYTE* key, BYTE* iv);
+WINPR_API int winpr_Cipher_BytesToKey(int cipher, int md, const BYTE* salt, const BYTE* data, int datal, int count, BYTE* key, BYTE* iv);
 
 #ifdef __cplusplus
 }

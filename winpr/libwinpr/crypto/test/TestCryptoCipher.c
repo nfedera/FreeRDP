@@ -44,22 +44,16 @@ static BOOL test_crypto_cipher_aes_128_cbc()
 	}
 	xlen += olen;
 
-	if (!winpr_Cipher_Final(ctx, obuf, &olen))
+	if (!winpr_Cipher_Final(ctx, obuf + xlen, &olen))
 	{
 		fprintf(stderr, "%s: winpr_Cipher_Final (encrypt) failed\n", __FUNCTION__);
 		goto out;
 	}
 	xlen += olen;
 
-	if (!winpr_Cipher_Final(ctx, obuf, &olen))
-	{
-		fprintf(stderr, "%s: winpr_Cipher_Final (encrypt) failed\n", __FUNCTION__);
-		goto out;
-	}
-
 	if (xlen != ilen)
 	{
-		fprintf(stderr, "%s: error, xlen (%u) != ilen (%u) (encrypt)\n", __FUNCTION__, (unsigned)olen, (unsigned)ilen);
+		fprintf(stderr, "%s: error, xlen (%u) != ilen (%u) (encrypt)\n", __FUNCTION__, (unsigned)xlen, (unsigned)ilen);
 		goto out;
 	}
 
@@ -77,6 +71,7 @@ static BOOL test_crypto_cipher_aes_128_cbc()
 	memset(ibuf, 0, sizeof(ibuf));
 	memcpy(ibuf, obuf, xlen);
 	memset(obuf, 0, sizeof(obuf));
+
 	ilen = xlen;
 	olen = 0;
 	xlen = 0;
@@ -88,26 +83,20 @@ static BOOL test_crypto_cipher_aes_128_cbc()
 	}
 	xlen += olen;
 
-	if (!winpr_Cipher_Final(ctx, obuf, &olen))
+	if (!winpr_Cipher_Final(ctx, obuf + xlen, &olen))
 	{
 		fprintf(stderr, "%s: winpr_Cipher_Final (decrypt) failed\n", __FUNCTION__);
 		goto out;
 	}
 	xlen += olen;
 
-	if (!winpr_Cipher_Final(ctx, obuf, &olen))
-	{
-		fprintf(stderr, "%s: winpr_Cipher_Final (decrypt) failed\n", __FUNCTION__);
-		goto out;
-	}
-
 	if (xlen != ilen)
 	{
-		fprintf(stderr, "%s: error, xlen (%u) != ilen (%u) (decrypt)\n", __FUNCTION__, (unsigned)olen, (unsigned)ilen);
+		fprintf(stderr, "%s: error, xlen (%u) != ilen (%u) (decrypt)\n", __FUNCTION__, (unsigned)xlen, (unsigned)ilen);
 		goto out;
 	}
 
-	if (strcmp((const char*)obuf, plaintext))
+	if (strcmp((const char*) obuf, plaintext))
 	{
 		fprintf(stderr, "%s: error, decrypted data does not match plaintext\n", __FUNCTION__);
 		goto out;
@@ -133,17 +122,24 @@ static BOOL test_crypto_cipher_rc4()
 
 	len = strlen(TEST_RC4_PLAINTEXT);
 
-	text = (BYTE*) calloc(1, len);
-
-	if (!text)
+	if (!(text = (BYTE*) calloc(1, len)))
+	{
+		fprintf(stderr, "%s: failed to allocate text buffer (len=%u)\n", __FUNCTION__, (unsigned)len);
 		goto out;
+	}
 
 	if ((ctx = winpr_RC4_New(TEST_RC4_KEY, strlen((char*) TEST_RC4_KEY))) == NULL)
+	{
+		fprintf(stderr, "%s: winpr_RC4_New failed\n", __FUNCTION__);
 		goto out;
+	}
 	rc = winpr_RC4_Update(ctx, len, (BYTE*) TEST_RC4_PLAINTEXT, text);
 	winpr_RC4_Free(ctx);
 	if (!rc)
+	{
+		fprintf(stderr, "%s: winpr_RC4_Update failed\n", __FUNCTION__);
 		goto out;
+	}
 
 	if (memcmp(text, TEST_RC4_CIPHERTEXT, len) != 0)
 	{
@@ -153,7 +149,7 @@ static BOOL test_crypto_cipher_rc4()
 		actual = winpr_BinToHexString(text, len, FALSE);
 		expected = winpr_BinToHexString(TEST_RC4_CIPHERTEXT, len, FALSE);
 
-		fprintf(stderr, "unexpected RC4 ciphertext: Actual: %s Expected: %s\n", actual, expected);
+		fprintf(stderr, "%s: unexpected RC4 ciphertext: Actual: %s Expected: %s\n", __FUNCTION__, actual, expected);
 
 		free(actual);
 		free(expected);
@@ -190,7 +186,7 @@ static BOOL test_crypto_cipher_key()
 	ZeroMemory(key, sizeof(key));
 	ZeroMemory(iv, sizeof(iv));
 
-	status = winpr_openssl_BytesToKey(WINPR_CIPHER_AES_256_CBC, WINPR_MD_SHA1,
+	status = winpr_Cipher_BytesToKey(WINPR_CIPHER_AES_256_CBC, WINPR_MD_SHA1,
 			salt, TEST_RAND_DATA, 64, 4, key, iv);
 
 	if (status != 32 || memcmp(key, TEST_CIPHER_KEY, 32) || memcmp(iv, TEST_CIPHER_IV, 16))

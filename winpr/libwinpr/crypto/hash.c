@@ -142,6 +142,7 @@ mbedtls_md_type_t winpr_mbedtls_get_md_type(int md)
 }
 #endif
 
+
 WINPR_HMAC_CTX* winpr_HMAC_New(WINPR_MD_TYPE md, const BYTE* key, size_t keylen)
 {
 	WINPR_HMAC_CTX* ctx = NULL;
@@ -180,20 +181,32 @@ WINPR_HMAC_CTX* winpr_HMAC_New(WINPR_MD_TYPE md, const BYTE* key, size_t keylen)
 	ctx = (WINPR_HMAC_CTX*) hmac;
 
 #elif defined(WITH_MBEDTLS)
-	const mbedtls_md_info_t* md_info;
+	mbedtls_md_context_t* mdctx;
 	mbedtls_md_type_t md_type = winpr_mbedtls_get_md_type(md);
-	md_info = mbedtls_md_info_from_type(md_type);
+	const mbedtls_md_info_t* md_info = mbedtls_md_info_from_type(md_type);
 
 	if (!md_info)
 		return NULL;
 
-	mbedtls_md_init((mbedtls_md_context_t*) ctx);
-
-	if (mbedtls_md_setup((mbedtls_md_context_t*) ctx, md_info, 1) != 0)
+	if (!(mdctx = (mbedtls_md_context_t*) calloc(1, sizeof(mbedtls_md_context_t))))
 		return NULL;
 
-	if (mbedtls_md_hmac_starts((mbedtls_md_context_t*) ctx, key, keylen) != 0)
+	mbedtls_md_init(mdctx);
+
+	if (mbedtls_md_setup(mdctx, md_info, 1) != 0)
+	{
+		mbedtls_md_free(mdctx);
+		free(mdctx);
 		return NULL;
+	}
+
+	if (mbedtls_md_hmac_starts(mdctx, key, keylen) != 0)
+	{
+		mbedtls_md_free(mdctx);
+		free(mdctx);
+		return NULL;
+	}
+	ctx = (WINPR_HMAC_CTX*) mdctx;
 #endif
 	return ctx;
 }
@@ -210,7 +223,8 @@ BOOL winpr_HMAC_Update(WINPR_HMAC_CTX* ctx, const BYTE* input, size_t ilen)
 #endif
 
 #elif defined(WITH_MBEDTLS)
-	if (mbedtls_md_hmac_update((mbedtls_md_context_t*) ctx, input, ilen) != 0)
+	mbedtls_md_context_t* mdctx = (mbedtls_md_context_t*) ctx;
+	if (mbedtls_md_hmac_update(mdctx, input, ilen) != 0)
 		return FALSE;
 #endif
 	return TRUE;
@@ -240,10 +254,12 @@ BOOL winpr_HMAC_Final(WINPR_HMAC_CTX* ctx, BYTE* output, size_t olen)
 #endif
 
 #elif defined(WITH_MBEDTLS)
-	if (mbedtls_md_hmac_finish((mbedtls_md_context_t*) ctx, output) != 0)
+	mbedtls_md_context_t* mdctx = (mbedtls_md_context_t*) ctx;
+	if (mbedtls_md_hmac_finish(mdctx, output) != 0)
 		ret = FALSE;
 
 	mbedtls_md_free((mbedtls_md_context_t*) ctx);
+	free(mdctx);
 #endif
 	return ret;
 }
@@ -300,21 +316,34 @@ WINPR_DIGEST_CTX* winpr_Digest_New(WINPR_MD_TYPE md)
 	ctx = (WINPR_DIGEST_CTX*) mdctx;
 
 #elif defined(WITH_MBEDTLS)
-	const mbedtls_md_info_t* md_info;
+	mbedtls_md_context_t* mdctx;
 	mbedtls_md_type_t md_type = winpr_mbedtls_get_md_type(md);
-	md_info = mbedtls_md_info_from_type(md_type);
+	const mbedtls_md_info_t* md_info = mbedtls_md_info_from_type(md_type);
 
 	if (!md_info)
 		return NULL;
 
-	mbedtls_md_init((mbedtls_md_context_t*) ctx);
-
-	if (mbedtls_md_setup((mbedtls_md_context_t*) ctx, md_info, 0) != 0)
+	if (!(mdctx = (mbedtls_md_context_t*) calloc(1, sizeof(mbedtls_md_context_t))))
 		return NULL;
 
-	if (mbedtls_md_starts((mbedtls_md_context_t*) ctx) != 0)
+	mbedtls_md_init(mdctx);
+
+	if (mbedtls_md_setup(mdctx, md_info, 0) != 0)
+	{
+		mbedtls_md_free(mdctx);
+		free(mdctx);
 		return NULL;
+	}
+
+	if (mbedtls_md_starts(mdctx) != 0)
+	{
+		mbedtls_md_free(mdctx);
+		free(mdctx);
+		return NULL;
+	}
+	ctx = (WINPR_DIGEST_CTX*) mdctx;
 #endif
+
 	return ctx;
 }
 
@@ -325,7 +354,8 @@ BOOL winpr_Digest_Update(WINPR_DIGEST_CTX* ctx, const BYTE* input, size_t ilen)
 	if (EVP_DigestUpdate(mdctx, input, ilen) != 1)
 		return FALSE;
 #elif defined(WITH_MBEDTLS)
-	if (mbedtls_md_update((mbedtls_md_context_t*) ctx, input, ilen) != 0)
+	mbedtls_md_context_t* mdctx = (mbedtls_md_context_t*) ctx;
+	if (mbedtls_md_update(mdctx, input, ilen) != 0)
 		return FALSE;
 #endif
 	return TRUE;
@@ -347,10 +377,12 @@ BOOL winpr_Digest_Final(WINPR_DIGEST_CTX* ctx, BYTE* output, size_t olen)
 #endif
 
 #elif defined(WITH_MBEDTLS)
-	if (mbedtls_md_finish((mbedtls_md_context_t*) ctx, output) != 0)
+	mbedtls_md_context_t* mdctx = (mbedtls_md_context_t*) ctx;
+	if (mbedtls_md_finish(mdctx, output) != 0)
 		ret = FALSE;
 
-	mbedtls_md_free((mbedtls_md_context_t*) ctx);
+	mbedtls_md_free(mdctx);
+	free(mdctx);
 #endif
 	return ret;
 }

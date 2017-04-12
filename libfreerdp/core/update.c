@@ -310,6 +310,33 @@ BOOL update_read_pointer_system(wStream* s,
 	return TRUE;
 }
 
+
+void update_print_pointer_mask(POINTER_COLOR_UPDATE* pointer)
+{
+	UINT32 x, y, stride = ((pointer->width + 15) >> 4) * 2;
+	fprintf(stderr, "\n----------------------------------------------------\n");
+	fprintf(stderr, "width:%d height:%d lengthAndMask:%d lengthXorMask:%d\n\n", pointer->width, pointer->height, pointer->lengthAndMask, pointer->lengthXorMask);
+
+	for (y = 0; y < pointer->height; y++)
+	{
+		BYTE* line = &pointer->andMaskData[stride * (pointer->height-1-y)];
+		for (x = 0; x < pointer->width; x++)
+		{
+			fprintf(stderr, "%s ", line[x>>3] & (0x80 >> (x & 7)) ?  "X" : " ");
+		}
+		fprintf(stderr, "\n");
+	}
+	for (y = 0; y < pointer->height; y++)
+	{
+		for (x = 0; x < pointer->width; x++)
+		{
+			fprintf(stderr, "%8X ", ((UINT32*)pointer->xorMaskData)[y*pointer->width + x]);
+		}
+		fprintf(stderr, "\n");
+	}
+	fprintf(stderr, "----------------------------------------------------\n");
+}
+
 BOOL update_read_pointer_color(wStream* s, POINTER_COLOR_UPDATE* pointer_color,
                                int xorBpp)
 {
@@ -420,6 +447,8 @@ BOOL update_read_pointer_color(wStream* s, POINTER_COLOR_UPDATE* pointer_color,
 		pointer_color->andMaskData = newMask;
 		Stream_Read(s, pointer_color->andMaskData, pointer_color->lengthAndMask);
 	}
+
+	update_print_pointer_mask(pointer_color);
 
 	if (Stream_GetRemainingLength(s) > 0)
 		Stream_Seek_UINT8(s); /* pad (1 byte) */
